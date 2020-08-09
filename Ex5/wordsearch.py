@@ -78,7 +78,7 @@ def find_words_in_matrix(word_list, matrix, directions):
 
     # Change results from Counter to list of tuples
     results = []
-    for word in sorted(words_found.keys()):
+    for word in words_found.keys():
         tup = (word, words_found[word])
         results.append(tup)
 
