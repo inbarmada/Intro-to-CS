@@ -1,6 +1,6 @@
 ############################################################
 # FILE : wordsearch.py
-# WRITER : Inbar Leibovich , inbarlei , 21395389
+# WRITER : Inbar Leibovich , inbarlei
 # EXERCISE : intro2cse Ex5 2020
 # DESCRIPTION: Word search solver
 # STUDENTS I DISCUSSED THE EXERCISE WITH: 
@@ -11,7 +11,7 @@
 import sys
 import os.path
 from collections import Counter
-
+from time import time
 
 def check_input_args(args):
     """ Check validity of input arguments"""
@@ -67,54 +67,77 @@ def read_matrix_file(filename):
     return matrix
 
 
+def get_first_letter_dict(word_list):
+    """ Convert word_list into dictionary sorted
+    with first letter of each word as the key """
+    word_dict = {}
+
+    # Put words in dictionary
+    for word in word_list:
+        if word[0] in word_dict:
+            word_dict.get(word[0]).append(word)
+        else:
+            word_dict[word[0]] = [word]
+
+    # Sort each list in dictionary
+    for item in word_dict.keys():
+        word_dict[item].sort()
+
+    return word_dict
+
+
 def find_words_in_matrix(word_list, matrix, directions):
     """ Search through matrix to return all words
     from word_list in the directions given"""
     words_found = Counter()
-
-    # Find words in each direction given
-    for d in set(directions):
-        words_found += direction_words(word_list, matrix, d)
+    word_dict = get_first_letter_dict(word_list)
+    directions = set(directions)
+    # Iterate through matrix to find words starting in each cell
+    for row in range(len(matrix)):
+        for col in range(len(matrix[row])):
+            cell_letter = matrix[row][col]
+            if cell_letter in word_dict:
+                words_found.update(check_cell(word_dict[cell_letter],
+                                              matrix, directions, row, col))
 
     # Change results from Counter to list of tuples
     results = []
     for word in words_found.keys():
         tup = (word, words_found[word])
         results.append(tup)
-
     return results
 
 
-def direction_words(word_list, matrix, d):
-    """ Search through matrix and return all
-    words from word_list in a given direction"""
-    words_found = Counter()
-
-    # Iterate through cells of matrix and add word(s)
-    # that start at each cell to the word_found counter
-    for row in range(len(matrix)):
-        for col in range(len(matrix[row])):
-            words_found.update(check_cell(word_list, matrix, d, row, col, 0))
-
-    return words_found
-
-
-def check_cell(word_list, matrix, d, row, col, num):
-    """ Return all words in direction d that
+def check_cell(word_list, matrix, directions, start_row, start_col):
+    """ Return all words in given directions that
     start at given cell through recursive calls"""
-    # Words from previous calls that end at this cell
+    # List of words in wordsearch that start at this cell
     found = []
-    # Words from previous calls that continue beyond this cell
-    next_cell = []
 
-    while len(word_list) > 0 and row is not None and col is not None:
-        # Check if current letter of words match the current cell
-        letter_match_cell(word_list, matrix[row][col], num, found, next_cell)
-        # Update to check for next cell
-        row = new_row(row, d, len(matrix))
-        col = new_col(col, d, len(matrix[0]))
-        word_list, next_cell = next_cell, []
-        num += 1
+    # Check for one-letter words
+    next_cell = []
+    letter_match_cell(word_list, matrix[start_row][start_col], 0, found,
+                      next_cell)
+    word_list = next_cell
+    found = found * len(directions)
+
+    # Check for each direction
+    for d in directions:
+        # Reset variables for each direction
+        num = 1
+        w_list, next_cell = word_list[:], []
+        row = new_row(start_row, d, len(matrix))
+        col = new_col(start_col, d, len(matrix[0]))
+
+        # Look for words in direction d
+        while len(word_list) > 0 and row is not None and col is not None:
+            # Check if current letter of words match the current cell
+            letter_match_cell(w_list, matrix[row][col], num, found, next_cell)
+            # Update to check for next cell
+            row = new_row(row, d, len(matrix))
+            col = new_col(col, d, len(matrix[0]))
+            w_list, next_cell = next_cell, []
+            num += 1
 
     # Return found words
     return found
@@ -123,16 +146,60 @@ def check_cell(word_list, matrix, d, row, col, num):
 def letter_match_cell(word_list, cell_letter, num, found, next_cell):
     """ Check if character num of words in list matches
     the character of cell and if so add to list """
-    # Iterate through words that matched the previous cell
-    for word in word_list:
-        # If the next letter matches this cell
-        if word[num] == cell_letter:
+    # Do a binary search to find a word with num-th letter equal to cell
+    index = get_letter_index(word_list, cell_letter, num)  # O(log n)
+    # If letter is not in word_list
+    if index is None:
+        return
+
+    # Find all matching words before index
+    check_letter_words(word_list, num, cell_letter, found, next_cell,
+                       index - 1, -1, 0, len(word_list) - 1)
+
+    # Switch the order of words in next_cell to be alphabetical
+    next_cell.reverse()
+
+    # Find all matching words after index
+    check_letter_words(word_list, num, cell_letter, found, next_cell,
+                       index, 1, 0, len(word_list) - 1)
+
+
+def check_letter_words(word_list, num, letter, found, next_cell,
+                       index, increment, low_bound, up_bound):
+    """ Find all words that contain letter as their num-th
+    character and add them to lists next_cell if they continue
+    beyond current cell, and found if they do not """
+    while low_bound <= index <= up_bound:
+        word = word_list[index]
+
+        if word[num] == letter:
             # If word ends at this cell add it to found
             if len(word) == num + 1:
                 found.append(word)
             # If word continues beyond this cell add it to next_cell
             else:
                 next_cell.append(word)
+
+        # List has moved past words starting with the letter
+        else:
+            break
+
+        index += increment
+
+
+def get_letter_index(word_list, letter, num):
+    """ Binary search through word_list to find a word
+    that has given letter for its num-th character """
+    lo = 0
+    hi = len(word_list) - 1
+    while hi >= lo:
+        mid = (hi + lo)//2
+        if word_list[mid][num] > letter:
+            hi = mid - 1
+        elif word_list[mid][num] < letter:
+            lo = mid + 1
+        else:
+            return mid
 
 
 def new_row(row, d, length):
@@ -163,6 +230,7 @@ def new_col(col, d, length):
 
 def write_output_file(results, output_filename):
     """ Write results to output file """
+    cur_time = time()
     with open(output_filename, 'w') as file:
         for tup in results:
             file.write(tup[0] + "," + str(tup[1]) + "\n")
