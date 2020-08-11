@@ -11,7 +11,7 @@
 import sys
 import os.path
 from collections import Counter
-from time import time
+
 
 def check_input_args(args):
     """ Check validity of input arguments"""
@@ -236,7 +236,6 @@ def new_col(col, d, length):
 
 def write_output_file(results, output_filename):
     """ Write results to output file """
-    cur_time = time()
     with open(output_filename, 'w') as file:
         for tup in results:
             file.write(tup[0] + "," + str(tup[1]) + "\n")
@@ -258,6 +257,3 @@ def search_words(args):
 
 if __name__ == "__main__":
     search_words(sys.argv[1:])
-    cur_time = time()
-    search_words(['words.txt', 'matrix_large.txt', 'Outputt.txt', 'udlrwxyz'])
-    print(time() - cur_time)
