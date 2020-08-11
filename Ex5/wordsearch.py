@@ -113,34 +113,40 @@ def check_cell(word_list, matrix, directions, start_row, start_col):
     start at given cell through recursive calls"""
     # List of words in wordsearch that start at this cell
     found = []
+    word_list_start = 0
 
     # Check for one-letter words
-    next_cell = []
-    letter_match_cell(word_list, matrix[start_row][start_col], 0, found,
-                      next_cell)
-    word_list = next_cell
+    if word_list[0] == matrix[start_row][start_col]:
+        found.append(word_list[0])
+        word_list_start = 1
     found = found * len(directions)
 
     # Check for each direction
     for d in directions:
-        # Reset variables for each direction
-        num = 1
-        w_list, next_cell = word_list[:], []
-        row = new_row(start_row, d, len(matrix))
-        col = new_col(start_col, d, len(matrix[0]))
-
-        # Look for words in direction d
-        while len(word_list) > 0 and row is not None and col is not None:
-            # Check if current letter of words match the current cell
-            letter_match_cell(w_list, matrix[row][col], num, found, next_cell)
-            # Update to check for next cell
-            row = new_row(row, d, len(matrix))
-            col = new_col(col, d, len(matrix[0]))
-            w_list, next_cell = next_cell, []
-            num += 1
+        check_cell_direction(word_list, word_list_start, matrix,
+                             start_row, start_col, found, d)
 
     # Return found words
     return found
+
+
+def check_cell_direction(word_list, word_list_start, matrix,
+                         start_row, start_col, found, d):
+    # Reset variables for each direction
+    num = 1
+    w_list, next_cell = word_list[word_list_start:], []
+    row = new_row(start_row, d, len(matrix))
+    col = new_col(start_col, d, len(matrix[0]))
+
+    # Look for words in direction d
+    while len(word_list) > 0 and row is not None and col is not None:
+        # Check if current letter of words match the current cell
+        letter_match_cell(w_list, matrix[row][col], num, found, next_cell)
+        # Update to check for next cell
+        row = new_row(row, d, len(matrix))
+        col = new_col(col, d, len(matrix[0]))
+        w_list, next_cell = next_cell, []
+        num += 1
 
 
 def letter_match_cell(word_list, cell_letter, num, found, next_cell):
@@ -252,3 +258,6 @@ def search_words(args):
 
 if __name__ == "__main__":
     search_words(sys.argv[1:])
+    cur_time = time()
+    search_words(['words.txt', 'matrix_large.txt', 'Outputt.txt', 'udlrwxyz'])
+    print(time() - cur_time)
