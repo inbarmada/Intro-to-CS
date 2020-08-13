@@ -2,7 +2,8 @@
 # FILE : board.py
 # WRITER : Inbar Leibovich , inbarlei , 21395389
 # EXERCISE : intro2cse Ex9 2020
-# DESCRIPTION:
+# DESCRIPTION: A class representing a board object for
+#              the game rush hour
 # STUDENTS I DISCUSSED THE EXERCISE WITH:
 # WEB PAGES I USED:
 # NOTES:
@@ -11,27 +12,44 @@
 
 class Board:
     """
-    Add a class description here.
-    Write briefly about the purpose of the class
+    The Board class holds a matrix that represents
+    the board game, with cars sitting in different
+    positions on it. It holds a list of all the
+    cars. It also handles all interaction between
+    the Game and individual Car objects.
     """
     EXIT_LOCATION = (3, 7)
-
+    DUPLICATE_CAR_NAME_MSG = 'Car name already in use.'
+    DUPLICATE_CAR_MSG = 'Car already exists.'
+    ILLEGAL_LENGTH_MSG = 'Illegal length - non-positive number.'
+    COORDINATE_OUTSIDE_MSG = 'Illegal coordinate - outside board'
+    COORDINATE_TAKEN_MSG = 'Illegal coordinate - another car ' \
+                           'is already in this position'
+    CAR_DOES_NOT_EXIST_MSG = 'Car does not exist'
+    INVALID_MOVE_MSG = 'Invalid move'
+    MOVE_OUTSIDE_MSG = 'Illegal move - outside board'
+    MOVE_TAKEN_MSG = 'Illegal move - another car is already in this position'
+    
     def __init__(self):
+        """
+        A constructor for the board object
+        """
+        # Build board matrix
         self.board = []
         for i in range(7):
             self.board.append(['_'] * 7)
+
+        # Add exit location to the board
         self.board[3].append('_')
+
+        # Create an empty list for storing cars
         self.car_list = {}
-        # Note that this function is required in your Board implementation.
-        # However, is not part of the API for general board types.
 
     def __str__(self):
         """
         This function is called when a board object is to be printed.
         :return: A string of the current status of the board
         """
-        # The game may assume this function returns a reasonable representation
-        # of the board for printing, but may not assume details about it.
         board_string = ''
         for row in self.board:
             for cell in row:
@@ -46,6 +64,7 @@ class Board:
         # In this board, returns a list containing the cells in the square
         # from (0,0) to (6,6) and the target cell (3,7)
         cells = []
+        # Iterate over board and add all coordinates to list
         for i in range(len(self.board)):
             for j in range(len(self.board[i])):
                 cells.append((i, j))
@@ -57,14 +76,24 @@ class Board:
                  representing legal moves
         """
         move_list = []
+
+        # Iterate through the cars in the car list
         for car_name in self.car_list.keys():
             car = self.car_list[car_name]
             possible_moves = car.possible_moves()
+
+            # Iterate over each car's possible moves
             for move_key in possible_moves:
+                # Get the coordinate that must be empty for the move to work
                 new_loc = car.movement_requirements(move_key)[0]
-                if new_loc in self.cell_list() and self.cell_content(new_loc) is None:
+                # Check if the coordinate is on the board and is empty
+                if new_loc in self.cell_list() and \
+                        self.cell_content(new_loc) is None:
+                    # Add the move to the list
                     move_tup = car_name, move_key, possible_moves[move_key]
                     move_list.append(move_tup)
+
+        # Return list of moves
         return move_list
 
     def target_location(self):
@@ -84,10 +113,56 @@ class Board:
         """
         row, col = coordinate
         val = self.board[row][col]
+        # If coordinate contains a car, return the car name
         if val != '_':
             return val
+        # Otherwise return None
         else:
             return None
+
+    def check_car_validity(self, car):
+        """
+        Checks that car is not a duplicate, has
+        a legal length
+        :param car: car object of car to add
+        :return: True if car is valid. False otherwise
+        """
+        # Car name already in use
+        if car.get_name() in self.car_list:
+            print(self.DUPLICATE_CAR_NAME_MSG)
+            return False
+
+        # Car is not a duplicate (in case car name was somehow changed)
+        elif car in self.car_list.items():
+            print(self.DUPLICATE_CAR_MSG)
+            return False
+
+        # Car length illegal
+        elif car.length <= 0:
+            print(self.ILLEGAL_LENGTH_MSG)
+            return False
+
+        # All valid
+        return True
+
+    def check_car_coordinates(self, car):
+        """
+        Checks that coordinates are on the board and currently empty.
+        :param car: car object of car to add
+        :return: True if coordinates are legal. False otherwise
+        """
+        # Check all car coordinates are valid
+        for coord in car.car_coordinates():
+            # Coordinate is outside the board
+            if coord not in self.cell_list():
+                print(self.COORDINATE_OUTSIDE_MSG)
+                return False
+            # Another car is already in this coordinate
+            elif self.cell_content(coord):
+                print(self.COORDINATE_TAKEN_MSG)
+                return False
+        # All valid
+        return True
 
     def add_car(self, car):
         """
@@ -95,31 +170,55 @@ class Board:
         :param car: car object of car to add
         :return: True upon success. False if failed
         """
-        if car.get_name() in self.car_list:
-            print('Car name already in use')
+        # Check car validity
+        if not self.check_car_validity(car) or \
+                not self.check_car_coordinates(car):
             return False
 
-        elif car in self.car_list.items():
-            print('Car already exists')
-            return False
-
-        elif car.length <= 0:
-            print('Illegal length - <= 0')
-            return False
-
+        # Add car to car list
         self.car_list[car.get_name()] = car
 
+        # Add car coordinates to board
         for coord in car.car_coordinates():
             row, col = coord
-            if coord in self.cell_list() and not self.cell_content(coord):
-                self.board[row][col] = car.get_name()
-            else:
-                print('Illegal coordinate - outside board')
-                return False
+            self.board[row][col] = car.get_name()
+
         return True
-        # Remember to consider all the reasons adding a car can fail.
-        # You may assume the car is a legal car object following the API.
-        # implement your code and erase the "pass"
+
+    def check_move_car(self, name, movekey):
+        """
+        Check validity of car and move
+        :param name: name of the car to move
+        :param movekey: Key of move in car to activate
+        :return: True if move is valid. False otherwise
+        """
+        # Check that chosen car is in car_list
+        if name not in self.car_list:
+            print(self.CAR_DOES_NOT_EXIST_MSG)
+            return False
+
+        # Get the car
+        car = self.car_list[name]
+
+        # Check that move is valid
+        if movekey not in car.possible_moves():
+            print(self.INVALID_MOVE_MSG)
+            return False
+
+        # Get the coordinate that must be empty
+        new_loc = car.movement_requirements(movekey)[0]
+
+        # Check that the coordinate is on the board
+        if new_loc not in self.cell_list():
+            print(self.MOVE_OUTSIDE_MSG)
+            return False
+
+        # Check that the coordinate is empty
+        elif self.cell_content(new_loc):
+            print(self.MOVE_TAKEN_MSG)
+            return False
+
+        return car, new_loc
 
     def move_car(self, name, movekey):
         """
@@ -128,41 +227,26 @@ class Board:
         :param movekey: Key of move in car to activate
         :return: True upon success, False otherwise
         """
-        # Check that car is valid
-        if name not in self.car_list:
-            print('Car does not exist')
-            return
-
-        car = self.car_list[name]
-
-        # Check that move is valid
-        if movekey not in car.possible_moves():
-            print('Invalid move')
-            return
-
-        new_loc = car.movement_requirements(movekey)[0]
-
-        if new_loc not in self.cell_list():
-            print(new_loc, self.cell_list())
-            print('Illegal move - outside the board')
+        # Check move validity
+        check_result = self.check_move_car(name, movekey)
+        if not check_result:
             return False
 
+        # Move is valid - proceed to do it
         else:
-            if self.cell_content(new_loc) is None:
-                print('Moving the car')
-                # Nullify previous location of the car
-                for coord in car.car_coordinates():
-                    self.board[coord[0]][coord[1]] = '_'
-                # Find the car's new location
-                car.move(movekey)
-                # Put the car in its new coordinates
-                for coord in car.car_coordinates():
-                    self.board[coord[0]][coord[1]] = car.get_name()
+            car, new_loc = check_result
 
-                # Check if won
-                if new_loc == self.target_location():
-                    print('You WON!!')
+            print('Moving the car')
 
-                return True
-            else:
-                return False
+            # Remove car from its previous location
+            for coord in car.car_coordinates():
+                self.board[coord[0]][coord[1]] = '_'
+
+            # Move the car
+            car.move(movekey)
+
+            # Put the car in its new coordinates
+            for coord in car.car_coordinates():
+                self.board[coord[0]][coord[1]] = car.get_name()
+
+            return True
