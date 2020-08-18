@@ -2,9 +2,9 @@
 # FILE : nonogram.py
 # WRITER : Inbar Leibovich , inbarlei , 21395389
 # EXERCISE : intro2cse Ex8 2020
-# DESCRIPTION: 
-# STUDENTS I DISCUSSED THE EXERCISE WITH: 
-# WEB PAGES I USED: 
+# DESCRIPTION: Solve nonograms
+# STUDENTS I DISCUSSED THE EXERCISE WITH:
+# WEB PAGES I USED:
 # NOTES:
 ############################################################
 
@@ -46,11 +46,13 @@ def get_combos(row, block_sums, result, index, block_index, li):
     else:
         combos = []
         if row[index] != 0:
-            res = put_down_ones(row, block_sums, result[:], index, block_index, li)
+            res = put_down_ones(row, block_sums, result[:],
+                                index, block_index, li)
             if res:
                 combos.append(res)
         if row[index] != 1:
-            res = put_down_a_zero(row, block_sums, result[:], index, block_index, li)
+            res = put_down_a_zero(row, block_sums, result[:],
+                                  index, block_index, li)
             if res:
                 combos.append(res)
         return combos
@@ -62,10 +64,10 @@ def put_down_ones(row, block_sums, result, index, block_index, li):
         n -= 1
 
         # If after n blocks is a 1, try moving up one
-        if row[index + n + 1] == 1:
+        if row[index + n] == 1:
             return []
         else:
-            result[index + n + 1] = 0
+            result[index + n] = 0
 
     broken = False
     for i in range(n):
@@ -82,7 +84,8 @@ def put_down_ones(row, block_sums, result, index, block_index, li):
             result[index + n] = 0
             n += 1
 
-        return get_combos(row, block_sums, result, index + n, block_index + 1, li)
+        return get_combos(row, block_sums, result,
+                          index + n, block_index + 1, li)
 
 
 def put_down_a_zero(row, block_sums, result, index, block_index, li):
@@ -93,6 +96,8 @@ def put_down_a_zero(row, block_sums, result, index, block_index, li):
 # Must write a note at top of page
 def get_intersection_row(rows):
     intersection = []
+    if len(rows) == 0:
+        return intersection
     for index in range(len(rows[0])):
         color = -1
         broken = False
@@ -109,35 +114,133 @@ def get_intersection_row(rows):
     return intersection
 
 
+def row_from_constraints(row, constraints):
+    possibilities = get_row_variations(row, constraints)
+    if possibilities:
+        return get_intersection_row(possibilities), len(possibilities) == 1
+    else:
+        return row
+
+
+def board_from_constraints(board, constraints, rows, cols):
+    # Evaluate for rows
+    for i, row_ind in enumerate(rows):
+        consts = constraints[0][row_ind]
+        board[row_ind], row_complete = row_from_constraints(board[row_ind], consts)
+        if row_complete:
+            del rows[i]
+
+    # Evaluate for columns
+    for i, col_ind in enumerate(cols):
+        get_col = []
+        for row_ind in range(len(board)):
+            get_col.append(board[row_ind][col_ind])
+        consts = constraints[1][col_ind]
+        col_res, col_complete = row_from_constraints(get_col, consts)
+        for row_ind in range(len(board)):
+            board[row_ind][col_ind] = col_res[row_ind]
+        if col_complete:
+            del cols[i]
+
+
 # Only check rows/cols that contain -1s
 def solve_easy_nonogram(constraints):
     num_rows = len(constraints[0])
     num_cols = len(constraints[1])
-    board = [[-1]*num_cols] * num_rows
+    rows = list(range(num_rows))
+    cols = list(range(num_cols))
+
+    # Build board
+    board = []
+    for i in rows:
+        board.append([-1 for j in cols])
     prev_board = []
+
     while board != prev_board:
-        print('boarddddd', board, prev_board)
         prev_board = deep_copy(board)
 
-        # Evaluate for rows
-        for row_ind in range(num_rows):
-            consts = constraints[0][row_ind]
-            possibilities = get_row_variations(board[row_ind], consts)
-            if possibilities:
-                board[row_ind] = get_intersection_row(possibilities)
+        board_from_constraints(board, constraints, rows, cols)
+    return board
 
-        # Evaluate for columns
-        for col_ind in range(num_cols):
-            get_col = []
-            for row_ind in range(len(board)):
-                get_col.append(board[row_ind][col_ind])
-            consts = constraints[1][col_ind]
-            possibilities = get_row_variations(get_col, consts)
-            if possibilities:
-                col_res = get_intersection_row(possibilities)
-                for row_ind in range(len(board)):
-                    board[row_ind][col_ind] = col_res[row_ind]
-    print('boarddddd', board)
+
+def solve_nonogram(constraints):
+    nono = solve_easy_nonogram(constraints)
+    rows = list(range(len(constraints[0])))
+    cols = list(range(len(constraints[1])))
+    return board_possibilities(nono, constraints, rows, cols)
+
+
+def board_possibilities(board, constraints, rows, cols):
+    rows = rows[:]
+    cols = cols[:]
+    prev_board = []
+
+    while board != prev_board:
+        prev_board = deep_copy(board)
+        board_from_constraints(board, constraints, rows, cols)
+
+    board_list = []
+    chng = change(board, rows, cols)
+    if chng:
+        board_list.extend(board_possibilities(chng[0], constraints,
+                                              rows, cols))
+        board_list.extend(board_possibilities(chng[1], constraints,
+                                              rows, cols))
+    else:
+        if check(board, constraints):
+            board_list.append(board)
+
+    return board_list
+
+
+def change(board, rows, cols):
+    for row_ind in rows:
+        for col_ind in cols:
+            if board[row_ind][col_ind] == -1:
+                board_one = deep_copy(board)
+                board[row_ind][col_ind] = 0
+                board_one[row_ind][col_ind] = 1
+                return board, board_one
+    return False
+
+
+def check(board, constraints):
+    # Check that board fits row constraints
+    if not check_rows(board, constraints[0]):
+        return False
+
+    # Flip columns and rows
+    b = []
+    for c in range(len(board[0])):
+        new_row = []
+        for r in range(len(board)):
+            new_row.append(board[r][c])
+        b.append(new_row)
+
+    # Check that board fits column constraints
+    if not check_rows(b, constraints[1]):
+        return False
+
+    # If board fits return True
+    return True
+
+
+def check_rows(board, constraints):
+    for index, row in enumerate(board):
+        cur_ind = 0
+        c = constraints[index]
+        for block in c:
+            while row[cur_ind] == 0:
+                cur_ind += 1
+            for i in range(block):
+                if cur_ind >= len(row) or row[cur_ind] != 1:
+                    return False
+                cur_ind += 1
+        while cur_ind < len(row):
+            if row[cur_ind] != 0:
+                return False
+            cur_ind += 1
+    return True
 
 
 def deep_copy(mat):
@@ -175,78 +278,77 @@ def factorial(lower, n):
         fac *= i
     return fac
 
-
-def check_get_combos():
-    my_row = [1, 1, -1, 0]
-    my_constraints = [3]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = [[1, 1, 1, 0]]
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_row = [-1, -1, -1, 0]
-    my_constraints = [2]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = [[0, 1, 1, 0], [1, 1, 0, 0]]
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_row = [-1, 0, 1, 0, -1, 0]
-    my_constraints = [1, 1]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = [[0, 0, 1, 0, 1, 0], [1, 0, 1, 0, 0, 0]]
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_row = [-1, -1, -1]
-    my_constraints = [1]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_row = [0, 0, 0]
-    my_constraints = [1]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = []
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_row = [0, 0, -1, 1, 0]
-    my_constraints = [3]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = []
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_row = [0, 0, -1, 1, 0]
-    my_constraints = [2]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = [[0, 0, 1, 1, 0]]
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_row = [0, 0, 1, 1, 0]
-    my_constraints = [2]
-    actual = get_row_variations(my_row, my_constraints)
-    expected = [[0, 0, 1, 1, 0]]
-    assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-
-def check_intersection():
-    my_rows = [[0, 0, 1], [0, 1, 1], [0, 0, 1]]
-    actual = get_intersection_row(my_rows)
-    expected = [0, -1, 1]
-    assert actual == expected, 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
-    my_rows = [[0, 1, -1], [-1, -1, -1]]
-    actual = get_intersection_row(my_rows)
-    expected = [-1, -1, -1]
-    assert actual == expected, 'ac: ' + str(actual) + ' ex: ' + str(expected)
-
+my_row = [-1, -1, 1, -1, 1, -1, -1, -1, 0, -1]
+my_constraints = [2, 2, 1]
+actual = get_row_variations(my_row, my_constraints)
+# expected = [[0, 0, 1, 1, 1]]
+# print(actual)
+# assert sorted(actual) == sorted(expected), 'ac: ' + str(actual) + ' ex: ' + str(expected)
 
 # check_get_combos()
 # check_intersection()
-# row_const = [[3], [0,1], []]
-# col_const = [[2], [1,1], [1]]
-# solve_easy_nonogram([row_const, col_const])
 
-my_row = [-1] * 2
-my_constraints = []
-actual = get_row_variations(my_row, my_constraints)
+unknown_nonogram = [[
+    [2, 18],
+    [1, 20],
+    [23],
+    [23],
+    [24],
+    [25],
+    [25],
+    [19, 4],
+    [14, 3, 4],
+    [13, 6, 3],
+    [11, 8, 3],
+    [12, 2, 2, 3],
+    [7, 2, 3],
+    [5, 3, 3, 3],
+    [4, 1, 1, 1, 1, 1, 1, 3],
+    [4, 1, 3, 3, 1, 3],
+    [4, 1, 2, 2, 1, 1, 1],
+    [1, 2, 2, 1, 1],
+    [1, 2, 4, 1, 3, 1],
+    [1, 1 ,1, 2],
+    [1, 1, 1, 1],
+    [2, 13, 3],
+    [3, 1, 3, 1],
+    [1, 3, 12, 1, 1],
+    [5, 10, 2, 1],
+    [6, 8, 2, 1],
+    [7, 5, 2, 1],
+    [3, 3],
+    [3, 3],
+    [15]
+],
+    [
+        [17, 4],
+        [15, 2, 3],
+        [19, 5],
+        [1, 19, 5],
+        [13, 4],
+        [13, 2],
+        [13, 3, 1, 2, 1],
+        [12, 1, 1, 3, 1, 1],
+        [12, 4, 1, 1, 2, 3],
+        [12, 1, 2, 1, 1, 3, 2],
+        [12, 2, 1, 4, 2],
+        [10, 1, 1, 4, 1],
+        [10, 1, 1, 4, 1],
+        [9, 3, 1, 4, 1],
+        [8, 3, 1, 1, 4, 1],
+        [11, 2, 1, 3, 2],
+        [11, 2, 1, 3, 2],
+        [11, 1, 2, 1, 4, 3],
+        [8, 2, 4, 1, 3, 2, 1],
+        [7, 3, 1, 1, 2, 3, 1],
+        [7, 2, 3, 2, 1],
+        [9, 6],
+        [18, 1],
+        [15, 3],
+        [16, 4]
+    ]]
 
-print(len(actual))
-print(count_row_variations(3, my_constraints))
+
+
+print(solve_easy_nonogram(unknown_nonogram))
+
