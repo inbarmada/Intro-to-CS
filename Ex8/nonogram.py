@@ -224,7 +224,6 @@ def board_possibilities(board, constraints, rows, cols, board_list):
     while board != prev_board:
         prev_board = deep_copy(board)
         board_from_constraints(board, constraints, rows, cols)
-
     # If there is a -1 on the board, change it to 0 and 1 on new boards
     chng = change(board, rows, cols)
     if chng:
@@ -290,7 +289,7 @@ def check_rows(board, constraints):
 
         # Check that row contains blocks in c, separated by spaces
         block_check = check_blocks(row, c)
-        if block_check:
+        if block_check is not False:
             cur_ind = block_check
         else:
             return False
