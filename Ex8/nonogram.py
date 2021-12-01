@@ -15,7 +15,6 @@
 #        its color.
 ############################################################
 
-
 def get_row_variations(row, blocks):
     """ Get all possible variations of the row given
     its current shading and its constraints """

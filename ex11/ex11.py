@@ -144,18 +144,19 @@ class Diagnoser:
             node = node.positive_child
         # If a child is empty, and remove_empty is True,
         # replace node with other child
-        elif remove_empty:
-            if node.positive_child.data == "None":
-                node = node.negative_child
-            elif node.negative_child.data == "None":
-                node = node.positive_child
+        if node and remove_empty:
+            if node.positive_child or node.negative_child:
+                if not node.positive_child or node.positive_child.data == None:
+                    node = node.negative_child
+                elif not node.negative_child or node.negative_child.data == None:
+                    node = node.positive_child
         return node
 
     def check_equal(self, pos, neg):
         """ Check if node pos is the same as node neg """
         if pos is None and neg is None:
             return True
-        if pos.data != neg.data:
+        if pos is None or neg is None or pos.data != neg.data:
             return False
         else:
             return self.check_equal(pos.positive_child, neg.positive_child) \
@@ -192,14 +193,14 @@ def get_tree(symptoms, num, syms):
         neg = get_tree(symptoms[1:], num, syms)
     # If this is the last symptom, create illness nodes
     else:
-        pos = Node("None", None, None)
-        neg = Node("None", None, None)
+        pos = Node(None)
+        neg = Node(None)
         if syms[num]:
             c = Counter(syms[num])
-            neg = Node(c.most_common(1)[0][0], None, None)
+            neg = Node(c.most_common(1)[0][0])
         if syms[num + 1]:
             c = Counter(syms[num + 1])
-            pos = Node(c.most_common(1)[0][0], None, None)
+            pos = Node(c.most_common(1)[0][0])
     # Return node
     return Node(symptoms[0], pos, neg)
 
